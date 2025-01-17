@@ -15,8 +15,8 @@
             background: linear-gradient(to bottom, #1e3c72, #2a5298); /* Blue gradient */
             color: #000000;
             font-family: Arial, sans-serif;
-            text-align: center;
         }
+
         #container {
             background-color: #f0f0f0; /* Light gray */
             padding: 20px;
@@ -24,7 +24,54 @@
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
             width: 90%;
             max-width: 500px;
+            text-align: center;
         }
+
+        #drop-box {
+            width: 100%;
+            height: 150px;
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #666;
+            cursor: pointer;
+            position: relative;
+        }
+
+        #drop-box.dragover {
+            border-color: #333;
+            background-color: #f9f9f9;
+        }
+
+        #custom-menu {
+            position: absolute;
+            display: none;
+            background: white;
+            border: 1px solid #ccc;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+            z-index: 10;
+            width: 150px;
+            text-align: left;
+        }
+
+        #custom-menu button {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            background: none;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        #custom-menu button:hover {
+            background-color: #f0f0f0;
+        }
+
         #uploadedImage {
             max-width: 100%;
             max-height: 300px;
@@ -33,6 +80,7 @@
             margin-bottom: 20px;
             display: none;
         }
+
         input[type="file"], button {
             margin: 10px 0;
             padding: 10px 15px;
@@ -41,17 +89,20 @@
             font-size: 16px;
             cursor: pointer;
         }
+
         input[type="file"] {
-            background-color: #2a5298;
-            color: white;
+            display: none;
         }
+
         button {
             background-color: #1e3c72;
             color: white;
         }
-        button:hover, input[type="file"]:hover {
+
+        button:hover {
             background-color: #16375d;
         }
+
         #output {
             margin-top: 20px;
             white-space: pre-wrap;
@@ -60,6 +111,20 @@
             padding: 10px;
             border-radius: 5px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+
+        #paste-area {
+            display: none;
+            margin-top: 10px;
+            padding: 10px;
+            border: 2px dashed #000000;
+            border-radius: 5px;
+            background-color:  #16375d;
+            height: 100px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            text-align: center;
         }
     </style>
 </head>
@@ -67,65 +132,117 @@
     <div id="container">
         <h1>Text Recognition</h1>
         <h4>Load and process image to extract text</h4>
+        <div id="drop-box">Drag and drop an image here or click to select</div>
+        <div id="custom-menu">
+            <button id="paste-button" style="color: black; background: white;">Paste Image</button>
+        </div>
         <img id="uploadedImage" alt="Uploaded Preview">
-        <input type="file" id="imageInput" accept="image/*">
+        <textarea id="output" style="display: none; width: 100%; height: 100px;"></textarea>
         <button id="processButton">Process Image</button>
-        <div id="output"></div>
     </div>
 
     <script>
-        document.getElementById('imageInput').addEventListener('change', () => {
-            const fileInput = document.getElementById('imageInput');
-            const file = fileInput.files[0];
+        const dropBox = document.getElementById('drop-box');
+        const uploadedImage = document.getElementById('uploadedImage');
+        const processButton = document.getElementById('processButton');
+        const output = document.getElementById('output');
+        const customMenu = document.getElementById('custom-menu');
+        const pasteButton = document.getElementById('paste-button');
 
-            if (!file) {
-                alert('Please select an image file.');
-                return;
+        function clearImageAndOutput() {
+            uploadedImage.style.display = 'none';
+            uploadedImage.src = '';
+            output.value = '';
+            output.style.display = 'none';
+        }
+
+        function loadImage(file) {
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    clearImageAndOutput();
+                    uploadedImage.src = event.target.result;
+                    uploadedImage.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
             }
+        }
 
-            const reader = new FileReader();
-            reader.onload = function () {
-                const imageData = reader.result;
-
-                // Display the uploaded image
-                const uploadedImage = document.getElementById('uploadedImage');
-                uploadedImage.src = imageData;
-                uploadedImage.style.display = 'block';
-            };
-
-            reader.readAsDataURL(file);
+        dropBox.addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                loadImage(file);
+            });
+            input.click();
         });
 
-        document.getElementById('processButton').addEventListener('click', () => {
-            const fileInput = document.getElementById('imageInput');
-            const file = fileInput.files[0];
+        dropBox.addEventListener('contextmenu', (event) => {
+            event.preventDefault();
+            customMenu.style.display = 'block';
+            customMenu.style.left = `${event.pageX}px`;
+            customMenu.style.top = `${event.pageY}px`;
+        });
 
-            if (!file) {
-                alert('Please select an image file.');
-                return;
-            }
+        document.addEventListener('click', () => {
+            customMenu.style.display = 'none';
+        });
 
-            const reader = new FileReader();
-            reader.onload = function () {
-                const imageData = reader.result;
-
-                // Process the image using Tesseract.js
-                Tesseract.recognize(
-                    imageData,
-                    'eng',
-                    {
-                        logger: info => console.log(info) // Optional: Logs progress
+        pasteButton.addEventListener('click', () => {
+            navigator.clipboard.read().then((items) => {
+                for (const item of items) {
+                    if (item.types.includes('image/png') || item.types.includes('image/jpeg')) {
+                        item.getType('image/png').then((blob) => {
+                            loadImage(blob);
+                        });
                     }
-                ).then(({ data: { text } }) => {
-                    document.getElementById('output').innerText = text || 'No text found.';
-                }).catch(err => {
-                    console.error('Error:', err);
-                    document.getElementById('output').innerText = 'Error processing the image.';
-                });
-            };
-
-            reader.readAsDataURL(file);
+                }
+            }).catch((err) => {
+                alert('Failed to paste image: ' + err);
+            });
         });
+
+        dropBox.addEventListener('dragover', (event) => {
+            event.preventDefault();
+            dropBox.classList.add('dragover');
+        });
+
+        dropBox.addEventListener('dragleave', () => {
+            dropBox.classList.remove('dragover');
+        });
+
+        dropBox.addEventListener('drop', (event) => {
+            event.preventDefault();
+            dropBox.classList.remove('dragover');
+            const file = event.dataTransfer.files[0];
+            loadImage(file);
+        });
+
+        processButton.addEventListener('click', () => {
+            if (!uploadedImage.src) {
+                alert('Please upload or paste an image first.');
+                return;
+            }
+
+            Tesseract.recognize(
+                uploadedImage.src,
+                'eng',
+                {
+                    logger: info => console.log(info)
+                }
+            ).then(({ data: { text } }) => {
+                output.value = text || 'No text found.';
+                output.style.display = 'block';
+            }).catch(err => {
+                console.error('Error:', err);
+                output.value = 'Error processing the image.';
+                output.style.display = 'block';
+            });
+        });
+
+        clearImageAndOutput();
     </script>
 </body>
 </html>
